@@ -1,7 +1,7 @@
 # Root Main.tf
 
-data "aws_secretsmanager_secret" "openai_api_key" {
-  name = "openaikey"
+data "aws_secretsmanager_secret" "groq_api_key" {
+  name = "groqkey"
 }
 
 locals {
@@ -22,14 +22,14 @@ locals {
     api = {
       ecr_repository_name = "api"
       app_path            = "api"
-      image_version       = "1.0.4"
+      image_version       = "1.0.6"
       app_name            = "api"
       port                = 5000
       is_public           = true
       path_pattern        = "/api/*"
       lb_priority         = 10
       healthcheck_path    = "/api/healthcheck"
-      secrets             = [{ name = "OPENAI_API_KEY", valueFrom = data.aws_secretsmanager_secret.openai_api_key.arn }]
+      secrets             = [{ name = "GROQ_API_KEY", valueFrom = data.aws_secretsmanager_secret.groq_api_key.arn }]
       envars              = [{}]
     }
   }
