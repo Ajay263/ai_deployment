@@ -1,4 +1,4 @@
-# ECR Module - Extracted from original app module
+# ECR Module - Fixed Docker build paths
 
 # Data source for ECR authorization token
 data "aws_ecr_authorization_token" "this" {}
@@ -43,7 +43,7 @@ resource "terraform_data" "login" {
   }
 }
 
-# Docker operations - Build
+# Docker operations - Build (FIXED PATHS)
 resource "terraform_data" "build" {
   for_each = var.applications
   
@@ -54,7 +54,7 @@ resource "terraform_data" "build" {
   
   provisioner "local-exec" {
     command = <<EOT
-        docker build -t ${aws_ecr_repository.this[each.key].repository_url} ${var.docker_build_path}/${each.value.app_path}
+        docker build -t ${aws_ecr_repository.this[each.key].repository_url} ${var.docker_build_path}/modules/app/apps/${each.value.app_path}
         EOT
   }
 }

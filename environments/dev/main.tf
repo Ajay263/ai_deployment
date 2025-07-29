@@ -74,12 +74,13 @@ module "alb" {
   tags                  = local.common_tags
 }
 
-# ECR Module
+
 module "ecr" {
   source = "../../modules/app/ecr"
   
-  applications = var.applications
-  tags         = local.common_tags
+  applications      = var.applications
+  docker_build_path = "../.."  # This sets the path to the project root
+  tags              = local.common_tags
 }
 
 # Generate Dockerfile for UI with backend URL
