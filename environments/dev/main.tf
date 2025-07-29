@@ -16,6 +16,18 @@ locals {
   })
 }
 
+# Cost and Security Module
+module "cost_security" {
+  source = "../../modules/monitoring/cost-security"
+  
+  cluster_name            = local.cluster_name
+  notification_emails     = var.notification_emails
+  sns_topic_arn          = module.sns.sns_topic_arn
+  log_retention_days     = var.log_retention_days
+  enable_container_insights = var.enable_container_insights
+  tags                   = local.common_tags
+}
+
 # ============================================================================
 # INFRASTRUCTURE MODULES
 # ============================================================================
@@ -127,16 +139,6 @@ module "sns" {
   notification_emails = var.notification_emails
   slack_webhook_url = var.slack_webhook_url
   tags              = local.common_tags
-}
-
-# Cost and Security Module
-module "cost_security" {
-  source = "../../modules/monitoring/cost-security"
-  
-  cluster_name        = local.cluster_name
-  notification_emails = var.notification_emails
-  log_retention_days  = var.log_retention_days
-  tags                = local.common_tags
 }
 
 # ============================================================================
