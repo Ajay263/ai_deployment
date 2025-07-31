@@ -41,7 +41,7 @@ locals {
       lb_priority         = 10
       healthcheck_path    = "/api/healthcheck"
       healthcheck_command = ["CMD-SHELL", "curl -f http://localhost:5000/api/healthcheck || exit 1"]
-      secrets             = [
+      secrets = [
         {
           name      = "OPENAI_API_KEY"
           valueFrom = data.aws_secretsmanager_secret.openai_api_key.arn
@@ -53,10 +53,10 @@ locals {
 
   # Environment-specific configuration
   environment = terraform.workspace == "default" ? "dev" : terraform.workspace
-  
+
   # Monitoring configuration
   notification_emails = ["your-email@example.com"] # Replace with your email
-  
+
   common_tags = {
     Environment = local.environment
     Project     = "mtc-app"
@@ -85,11 +85,11 @@ resource "local_file" "dockerfile" {
 # Application modules
 module "app" {
   source = "./modules/app"
-  
+
   for_each = local.apps
-  
+
   depends_on = [local_file.dockerfile]
-  
+
   # Application configuration
   ecr_repository_name = each.value.ecr_repository_name
   app_path            = each.value.app_path
@@ -106,7 +106,7 @@ module "app" {
   healthcheck_path    = each.value.healthcheck_path
   healthcheck_command = each.value.healthcheck_command
   lb_priority         = each.value.lb_priority
-  
+
   # Infrastructure references
   execution_role_arn    = module.infra.execution_role_arn
   app_security_group_id = module.infra.app_security_group_id
@@ -114,48 +114,48 @@ module "app" {
   cluster_arn           = module.infra.cluster_arn
   vpc_id                = module.infra.vpc_id
   alb_listener_arn      = module.infra.alb_listener_arn
-  
+
   # Monitoring configuration
   log_group_name = module.monitoring.cloudwatch_log_groups.app_logs[each.key]
   aws_region     = data.aws_region.current.name
-  
+
   tags = local.common_tags
 }
 
 # Monitoring module
 module "monitoring" {
   source = "./modules/monitoring"
-  
+
   depends_on = [module.infra]
-  
+
   # Cluster configuration
   cluster_name = module.infra.cluster_name
   cluster_arn  = module.infra.cluster_arn
-  
+
   # Applications to monitor
   applications = {
     for app_name, app_config in local.apps : app_name => {
       name = app_config.app_name
     }
   }
-  
+
   # Target groups for ALB monitoring
   target_groups = {
     for app_name, app in module.app : app_name => app.target_group_arn_suffix
   }
-  
+
   # Load balancer configuration
   load_balancer_arn_suffix = module.infra.alb_arn_suffix
-  
+
   # Notification configuration
   notification_emails = local.notification_emails
-  
+
   # Monitoring thresholds
-  cpu_threshold    = 80
-  memory_threshold = 80
-  error_threshold  = 5
+  cpu_threshold      = 80
+  memory_threshold   = 80
+  error_threshold    = 5
   log_retention_days = 14
-  
+
   tags = local.common_tags
 }
 
@@ -177,7 +177,7 @@ EOF
 
 resource "aws_cloudwatch_query_definition" "app_errors" {
   for_each = local.apps
-  
+
   name = "${module.infra.cluster_name}-${each.key}-errors"
 
   log_group_names = [
