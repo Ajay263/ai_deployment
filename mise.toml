@@ -1,0 +1,16 @@
+# mise.toml - Tool version management for Terragrunt project
+# Place this file in your repository root
+
+[tools]
+# Terragrunt version - must be >= 0.77.22 (minimum supported by the action)
+terragrunt = "0.82.3"
+
+# OpenTofu version (recommended over Terraform for better compatibility)
+opentofu = "1.10.1"
+
+# Optional: You can also specify terraform if needed
+# terraform = "1.5.7"
+
+[env]
+# Environment variables that will be set when using mise
+TF_PLUGIN_CACHE_DIR = ".terraform.d/plugin-cache"

@@ -1,31 +1,29 @@
-name: 'Terraform Apply'
+name: 'Terraform Plan'
 
 on:
+  pull_request:
+    paths:
+      - 'environments/**'
+      - 'modules/**'
+      - '*.hcl'
+      - 'mise.toml'
+      - '.mise.toml'
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy (dev, staging, prod)'
+        description: 'Environment to plan (dev, staging, prod)'
         required: true
         type: choice
         options:
         - dev
         - staging
         - prod
-      confirm_apply:
-        description: 'Type "APPLY" to confirm deployment'
-        required: true
-        type: string
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to deploy'
+        description: 'Environment to plan'
         required: true
         type: string
-      skip_confirmation:
-        description: 'Skip confirmation check (for automated deployments)'
-        required: false
-        type: boolean
-        default: false
     secrets:
       ROLE_TO_ASSUME:
         required: true
@@ -34,133 +32,192 @@ permissions:
   contents: read
   id-token: write
   actions: read
+  pull-requests: write  # For PR comments
+
+env:
+  # Set environment based on workflow trigger
+  ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+  TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
 
 jobs:
-  validate-input:
-    name: 'Validate Input'
+  validate-environment:
+    name: 'Validate Environment'
     runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
     steps:
-      - name: Validate confirmation
-        if: ${{ !inputs.skip_confirmation && inputs.confirm_apply != 'APPLY' }}
+      - name: Set environment
+        id: set-env
         run: |
-          echo "::error::You must type 'APPLY' to confirm deployment"
-          exit 1
-
-      - name: Validate environment
-        run: |
-          if [[ ! "${{ inputs.environment }}" =~ ^(dev|staging|prod)$ ]]; then
-            echo "::error::Invalid environment: ${{ inputs.environment }}"
+          ENV="${{ inputs.environment }}"
+          if [ -z "$ENV" ]; then
+            # For PR events, determine environment from changed files or default to dev
+            ENV="dev"
+          fi
+          
+          if [[ ! "$ENV" =~ ^(dev|staging|prod)$ ]]; then
+            echo "::error::Invalid environment: $ENV"
             exit 1
           fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "Planning for environment: $ENV"
 
-  terraform-apply:
-    name: 'Terraform Apply - ${{ inputs.environment }}'
+  terragrunt-checks:
+    name: 'Terragrunt Validation'
     runs-on: ubuntu-latest
-    needs: validate-input
-    environment: ${{ inputs.environment }}
+    needs: validate-environment
     
-    defaults:
-      run:
-        shell: bash
-        working-directory: ./environments/${{ inputs.environment }}
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+
+      - name: 'Create OpenTofu Plugin Cache Dir'
+        run: mkdir -p ${{ env.TF_PLUGIN_CACHE_DIR }}
+
+      - name: 'OpenTofu Plugin Cache'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-plugin-cache-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-plugin-cache-
+
+      - name: 'Cache Terragrunt modules'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terragrunt-cache
+            .terragrunt-cache
+          key: ${{ runner.os }}-terragrunt-${{ needs.validate-environment.outputs.environment }}-${{ hashFiles('**/terragrunt.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terragrunt-${{ needs.validate-environment.outputs.environment }}-
+            ${{ runner.os }}-terragrunt-
+
+      # Check Terragrunt HCL formatting
+      - name: 'Check Terragrunt HCL Format'
+        uses: gruntwork-io/terragrunt-action@v3
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+        with:
+          tg_dir: 'environments/${{ needs.validate-environment.outputs.environment }}'
+          tg_command: 'hclfmt --terragrunt-check --terragrunt-diff'
+
+      # Validate Terragrunt configuration
+      - name: 'Validate Terragrunt Configuration'
+        uses: gruntwork-io/terragrunt-action@v3
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+        with:
+          tg_dir: 'environments/${{ needs.validate-environment.outputs.environment }}'
+          tg_command: 'validate-all'
+
+  terraform-plan:
+    name: 'Terraform Plan - ${{ needs.validate-environment.outputs.environment }}'
+    runs-on: ubuntu-latest
+    needs: [validate-environment, terragrunt-checks]
+    environment: ${{ needs.validate-environment.outputs.environment }}
     
     env:
       TF_VAR_public_key: ${{ secrets.EC2_SSH_PUBLIC_KEY }}
     
     steps:
-      - name: Configure AWS Credentials
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+
+      - name: 'Configure AWS Credentials'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
           aws-region: us-east-1
 
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: 'Create OpenTofu Plugin Cache Dir'
+        run: mkdir -p ${{ env.TF_PLUGIN_CACHE_DIR }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: 'OpenTofu Plugin Cache'
+        uses: actions/cache@v4
         with:
-          terraform_version: ~1.5.0
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-plugin-cache-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-plugin-cache-
 
-      - name: Setup Terragrunt
-        run: |
-          wget https://github.com/gruntwork-io/terragrunt/releases/download/v0.55.1/terragrunt_linux_amd64
-          chmod +x terragrunt_linux_amd64
-          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
-
-      - name: Cache Terragrunt modules
-        uses: actions/cache@v3
+      - name: 'Cache Terragrunt modules'
+        uses: actions/cache@v4
         with:
           path: |
             ~/.terragrunt-cache
             .terragrunt-cache
-          key: ${{ runner.os }}-terragrunt-${{ inputs.environment }}-${{ hashFiles('**/terragrunt.hcl') }}
+          key: ${{ runner.os }}-terragrunt-${{ needs.validate-environment.outputs.environment }}-${{ hashFiles('**/terragrunt.hcl') }}
           restore-keys: |
-            ${{ runner.os }}-terragrunt-${{ inputs.environment }}-
+            ${{ runner.os }}-terragrunt-${{ needs.validate-environment.outputs.environment }}-
             ${{ runner.os }}-terragrunt-
 
-      - name: Download Plan Artifact (if available)
-        if: github.event_name != 'workflow_dispatch'
-        uses: actions/download-artifact@v3
-        continue-on-error: true
+      # Initialize Terragrunt
+      - name: 'Terragrunt Init'
+        uses: gruntwork-io/terragrunt-action@v3
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
         with:
-          name: terraform-plan-${{ inputs.environment }}
-          path: ./environments/${{ inputs.environment }}
+          tg_dir: 'environments/${{ needs.validate-environment.outputs.environment }}'
+          tg_command: 'init'
 
-      - name: Terragrunt Init
-        run: terragrunt init
+      # Run Terraform format check
+      - name: 'Terraform Format Check'
+        uses: gruntwork-io/terragrunt-action@v3
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+        with:
+          tg_dir: 'environments/${{ needs.validate-environment.outputs.environment }}'
+          tg_command: 'fmt -check -recursive'
 
-      - name: Terragrunt Format Check
-        run: terragrunt hclfmt --terragrunt-check
-
-      - name: Terraform Format Check
-        run: terragrunt fmt -check -recursive
-
-      - name: Terragrunt Validate
-        run: terragrunt validate
-
-      - name: Terragrunt Plan (Pre-Apply Check)
+      # Generate Terraform plan
+      - name: 'Terragrunt Plan'
         id: plan
+        uses: gruntwork-io/terragrunt-action@v3
+        env:
+          TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+        with:
+          tg_dir: 'environments/${{ needs.validate-environment.outputs.environment }}'
+          tg_command: 'plan -out=plan.tfplan'
+          tg_comment: 1  # Enable PR comments
+          github_token: ${{ github.token }}
+
+      # Save plan for apply workflow
+      - name: 'Save Plan Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ needs.validate-environment.outputs.environment }}
+          path: |
+            environments/${{ needs.validate-environment.outputs.environment }}/plan.tfplan
+            environments/${{ needs.validate-environment.outputs.environment }}/.terraform
+            environments/${{ needs.validate-environment.outputs.environment }}/.terraform.lock.hcl
+          retention-days: 5
+
+      # Generate plan summary for output
+      - name: 'Plan Summary'
+        if: always()
         run: |
-          # If we have a saved plan, use it; otherwise create a new one
+          cd environments/${{ needs.validate-environment.outputs.environment }}
+          
+          echo "## Terraform Plan Summary for ${{ needs.validate-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           if [ -f "plan.tfplan" ]; then
-            echo "Using existing plan from artifact"
-            terragrunt show -no-color plan.tfplan
+            # Show plan summary using terragrunt
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            terragrunt show -json plan.tfplan | jq -r '.resource_changes[] | select(.change.actions[] | contains("create", "update", "delete")) | "\(.change.actions[0]): \(.address)"' >> $GITHUB_STEP_SUMMARY || echo "Plan created successfully" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
           else
-            echo "Creating new plan for apply"
-            terragrunt plan -out=plan.tfplan -no-color
+            echo "❌ Plan generation failed" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Terragrunt Apply
-        id: apply
-        run: |
-          echo "::group::Applying Terraform configuration for ${{ inputs.environment }}"
-          terragrunt apply -input=false -auto-approve plan.tfplan
-          echo "::endgroup::"
-
-      - name: Terragrunt Output
-        id: output
-        run: |
-          echo "::group::Terraform Outputs"
-          terragrunt output -json > /tmp/terraform-outputs-${{ inputs.environment }}.json
-          terragrunt output
-          echo "::endgroup::"
-
-      - name: Upload Apply Results
-        uses: actions/upload-artifact@v3
-        with:
-          name: terraform-apply-results-${{ inputs.environment }}
-          path: |
-            /tmp/terraform-outputs-${{ inputs.environment }}.json
-          retention-days: 90
-
-      - name: Notify Success
+      - name: 'Notify Success'
         if: success()
         run: |
-          echo "::notice::Terraform apply completed successfully for ${{ inputs.environment }} environment"
+          echo "::notice::Terraform plan completed successfully for ${{ needs.validate-environment.outputs.environment }} environment"
 
-      - name: Notify Failure
+      - name: 'Notify Failure'
         if: failure()
         run: |
-          echo "::error::Terraform apply failed for ${{ inputs.environment }} environment"
-          exit 1
+          echo "::error::Terraform plan failed for ${{ needs.validate-environment.outputs.environment }} environment"
