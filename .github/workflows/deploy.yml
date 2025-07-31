@@ -1,0 +1,183 @@
+name: 'Environment Deployment Pipeline'
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+        - dev
+        - staging  
+        - prod
+      skip_plan:
+        description: 'Skip plan and apply directly'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  # Determine deployment strategy based on branch
+  determine-deployment:
+    name: 'Determine Deployment Strategy'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_dev: ${{ steps.strategy.outputs.deploy_dev }}
+      deploy_staging: ${{ steps.strategy.outputs.deploy_staging }}
+      deploy_prod: ${{ steps.strategy.outputs.deploy_prod }}
+      requires_approval: ${{ steps.strategy.outputs.requires_approval }}
+    steps:
+      - name: Set deployment strategy
+        id: strategy
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual deployment - deploy only selected environment
+            echo "deploy_dev=${{ inputs.environment == 'dev' }}" >> $GITHUB_OUTPUT
+            echo "deploy_staging=${{ inputs.environment == 'staging' }}" >> $GITHUB_OUTPUT
+            echo "deploy_prod=${{ inputs.environment == 'prod' }}" >> $GITHUB_OUTPUT
+            echo "requires_approval=${{ inputs.environment == 'prod' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            # Main branch - deploy to production (with approval)
+            echo "deploy_dev=false" >> $GITHUB_OUTPUT
+            echo "deploy_staging=false" >> $GITHUB_OUTPUT
+            echo "deploy_prod=true" >> $GITHUB_OUTPUT
+            echo "requires_approval=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_name }}" = "develop" ]; then
+            # Develop branch - deploy to staging
+            echo "deploy_dev=false" >> $GITHUB_OUTPUT
+            echo "deploy_staging=true" >> $GITHUB_OUTPUT
+            echo "deploy_prod=false" >> $GITHUB_OUTPUT
+            echo "requires_approval=false" >> $GITHUB_OUTPUT
+          else
+            # Feature branches - deploy to dev
+            echo "deploy_dev=true" >> $GITHUB_OUTPUT
+            echo "deploy_staging=false" >> $GITHUB_OUTPUT
+            echo "deploy_prod=false" >> $GITHUB_OUTPUT
+            echo "requires_approval=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Development Environment
+  deploy-dev:
+    name: 'Deploy to Development'
+    needs: determine-deployment
+    if: needs.determine-deployment.outputs.deploy_dev == 'true'
+    uses: ./.github/workflows/apply.yml
+    with:
+      environment: dev
+      skip_confirmation: true
+    secrets:
+      ROLE_TO_ASSUME: ${{ secrets.DEV_ROLE_TO_ASSUME }}
+
+  # Staging Environment  
+  deploy-staging:
+    name: 'Deploy to Staging'
+    needs: [determine-deployment, deploy-dev]
+    if: |
+      always() && 
+      needs.determine-deployment.outputs.deploy_staging == 'true' &&
+      (needs.deploy-dev.result == 'success' || needs.deploy-dev.result == 'skipped')
+    uses: ./.github/workflows/apply.yml
+    with:
+      environment: staging
+      skip_confirmation: true
+    secrets:
+      ROLE_TO_ASSUME: ${{ secrets.STAGING_ROLE_TO_ASSUME }}
+
+  # Production Environment (requires approval)
+  deploy-prod:
+    name: 'Deploy to Production'
+    needs: [determine-deployment, deploy-staging]
+    if: |
+      always() && 
+      needs.determine-deployment.outputs.deploy_prod == 'true' &&
+      (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
+    environment: 
+      name: production
+      url: ${{ steps.get-url.outputs.app_url }}
+    uses: ./.github/workflows/apply.yml
+    with:
+      environment: prod
+      skip_confirmation: true
+    secrets:
+      ROLE_TO_ASSUME: ${{ secrets.PROD_ROLE_TO_ASSUME }}
+
+  # Smoke tests after deployment
+  smoke-tests:
+    name: 'Smoke Tests'
+    needs: [deploy-dev, deploy-staging, deploy-prod]
+    if: |
+      always() && 
+      (needs.deploy-dev.result == 'success' || 
+       needs.deploy-staging.result == 'success' || 
+       needs.deploy-prod.result == 'success')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: 
+          - ${{ needs.deploy-dev.result == 'success' && 'dev' || '' }}
+          - ${{ needs.deploy-staging.result == 'success' && 'staging' || '' }}
+          - ${{ needs.deploy-prod.result == 'success' && 'prod' || '' }}
+        exclude:
+          - environment: ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment outputs
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-apply-results-${{ matrix.environment }}
+          path: ./outputs
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests for ${{ matrix.environment }}"
+          # Add your smoke test commands here
+          # For example:
+          # - Health check endpoints
+          # - Basic functionality tests
+          # - Database connectivity
+          
+          # Example health check
+          if [ -f "./outputs/terraform-outputs-${{ matrix.environment }}.json" ]; then
+            # Extract ALB DNS name or other endpoints from outputs
+            echo "Deployment outputs available for testing"
+            cat ./outputs/terraform-outputs-${{ matrix.environment }}.json
+          fi
+
+  # Notification
+  notify-deployment:
+    name: 'Notify Deployment Status'
+    needs: [deploy-dev, deploy-staging, deploy-prod, smoke-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify success
+        if: |
+          (needs.deploy-dev.result == 'success' || needs.deploy-dev.result == 'skipped') &&
+          (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped') &&
+          (needs.deploy-prod.result == 'success' || needs.deploy-prod.result == 'skipped') &&
+          (needs.smoke-tests.result == 'success' || needs.smoke-tests.result == 'skipped')
+        run: |
+          echo "::notice::Deployment pipeline completed successfully"
+          
+      - name: Notify failure
+        if: |
+          needs.deploy-dev.result == 'failure' ||
+          needs.deploy-staging.result == 'failure' ||
+          needs.deploy-prod.result == 'failure' ||
+          needs.smoke-tests.result == 'failure'
+        run: |
+          echo "::error::Deployment pipeline failed"
+          exit 1

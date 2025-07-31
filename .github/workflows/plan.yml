@@ -1,0 +1,208 @@
+name: 'Terraform Plan'
+
+on:
+  push:
+    branches: [ 'main', 'develop' ]
+  pull_request:
+    branches: [ 'main', 'develop' ]
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to plan (dev, staging, prod)'
+        required: true
+        type: string
+      working_directory:
+        description: 'Working directory for the environment'
+        required: true
+        type: string
+    secrets:
+      ROLE_TO_ASSUME:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  determine-environments:
+    name: 'Determine Environments'
+    runs-on: ubuntu-latest
+    outputs:
+      environments: ${{ steps.set-environments.outputs.environments }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environments to plan
+        id: set-environments
+        run: |
+          # Check if this is a workflow_call (reusable workflow)
+          if [ "${{ github.event_name }}" = "workflow_call" ]; then
+            echo "environments=[\"${{ inputs.environment }}\"]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For push/PR events, determine environments based on branch and changed files
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.base_ref }}" = "main" ]; then
+            # Main branch changes affect all environments
+            echo "environments=[\"dev\", \"staging\", \"prod\"]" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_name }}" = "develop" ] || [ "${{ github.base_ref }}" = "develop" ]; then
+            # Develop branch changes affect dev and staging
+            echo "environments=[\"dev\", \"staging\"]" >> $GITHUB_OUTPUT
+          else
+            # Feature branches only affect dev
+            echo "environments=[\"dev\"]" >> $GITHUB_OUTPUT
+          fi
+
+  terraform-plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    needs: determine-environments
+    if: ${{ needs.determine-environments.outputs.environments != '[]' }}
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.determine-environments.outputs.environments) }}
+      fail-fast: false
+    
+    environment: ${{ matrix.environment }}
+    
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./environments/${{ matrix.environment }}
+    
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TF_VAR_public_key: ${{ secrets.EC2_SSH_PUBLIC_KEY }}
+    
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: us-east-1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.5.0
+
+      - name: Setup Terragrunt
+        run: |
+          wget https://github.com/gruntwork-io/terragrunt/releases/download/v0.55.1/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+      - name: Cache Terragrunt modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.terragrunt-cache
+            .terragrunt-cache
+          key: ${{ runner.os }}-terragrunt-${{ matrix.environment }}-${{ hashFiles('**/terragrunt.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terragrunt-${{ matrix.environment }}-
+            ${{ runner.os }}-terragrunt-
+
+      - name: Terragrunt Format Check
+        run: terragrunt hclfmt --terragrunt-check
+
+      - name: Terraform Format Check
+        run: terragrunt fmt -check -recursive
+
+      - name: Terragrunt Init
+        run: terragrunt init
+
+      - name: Terragrunt Validate
+        run: terragrunt validate
+
+      - name: Terragrunt Plan
+        id: plan
+        run: |
+          terragrunt plan -out=plan.tfplan -no-color
+          terragrunt show -json plan.tfplan > /tmp/plan-${{ matrix.environment }}.json
+          
+          # Create a summary for the PR comment
+          terragrunt show -no-color plan.tfplan > /tmp/plan-${{ matrix.environment }}.txt
+
+      - name: Setup OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+          version: latest
+
+      - name: Run OPA Policy Tests
+        run: |
+          if [ -f "../../policies/instance-policy.rego" ]; then
+            opaout=$(opa eval --data ../../policies/instance-policy.rego --input /tmp/plan-${{ matrix.environment }}.json "data.terraform.deny" | jq -r '.result[].expressions[].value[]' || echo "")
+            if [ -n "$opaout" ]; then
+              echo "::error::OPA Policy Violation in ${{ matrix.environment }}: $opaout"
+              echo "OPA_VIOLATION=true" >> $GITHUB_ENV
+              echo "OPA_MESSAGE=$opaout" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ matrix.environment }}
+          path: |
+            ./environments/${{ matrix.environment }}/plan.tfplan
+            /tmp/plan-${{ matrix.environment }}.json
+            /tmp/plan-${{ matrix.environment }}.txt
+          retention-days: 30
+
+      - name: Comment PR with Plan Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const environment = '${{ matrix.environment }}';
+            const planOutput = fs.readFileSync(`/tmp/plan-${environment}.txt`, 'utf8');
+            
+            let comment = `## Terraform Plan Results - ${environment.toUpperCase()}\n\n`;
+            
+            if (process.env.OPA_VIOLATION === 'true') {
+              comment += `### ❌ OPA Policy Violation\n\`\`\`\n${process.env.OPA_MESSAGE}\n\`\`\`\n\n`;
+            }
+            
+            comment += `<details>\n<summary>Show Plan Output</summary>\n\n\`\`\`terraform\n${planOutput}\n\`\`\`\n</details>`;
+            
+            // Find existing comment for this environment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.find(comment => 
+              comment.body.includes(`## Terraform Plan Results - ${environment.toUpperCase()}`)
+            );
+            
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+
+      - name: Fail on OPA Violation
+        if: env.OPA_VIOLATION == 'true'
+        run: |
+          echo "::error::Terraform plan failed OPA policy checks for ${{ matrix.environment }}"
+          exit 1
