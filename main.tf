@@ -4,7 +4,7 @@
 resource "aws_secretsmanager_secret" "groq_api_key" {
   name        = "groqkey"
   description = "Groq API Key for Terraform Quiz App"
-  
+
   tags = local.common_tags
 }
 
@@ -50,7 +50,7 @@ locals {
       lb_priority         = 10
       healthcheck_path    = "/api/healthcheck"
       healthcheck_command = ["CMD-SHELL", "curl -f http://localhost:5000/api/healthcheck || exit 1"]
-      secrets             = [
+      secrets = [
         {
           name      = "GROQ_API_KEY"
           valueFrom = aws_secretsmanager_secret.groq_api_key.arn
