@@ -45,7 +45,7 @@ resource "aws_route" "this" {
   gateway_id             = aws_internet_gateway.this.id
 }
 
-# Subnets.
+# Subnets
 resource "aws_subnet" "this" {
   for_each = { for i in range(var.num_subnets) : "public${i}" => i }
   
