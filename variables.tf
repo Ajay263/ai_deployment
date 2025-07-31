@@ -1,32 +1,8 @@
-# modules/monitoring/variables.tf
+# variables.tf - Root Module Variable Declarations
 
-variable "cluster_name" {
-  description = "Name of the ECS cluster"
-  type        = string
-}
-
-variable "cluster_arn" {
-  description = "ARN of the ECS cluster"
-  type        = string
-}
-
-variable "applications" {
-  description = "Map of applications to monitor"
-  type        = map(object({
-    name = string
-  }))
-}
-
-variable "target_groups" {
-  description = "Map of target group ARN suffixes for ALB monitoring"
-  type        = map(string)
-  default     = {}
-}
-
-variable "load_balancer_arn_suffix" {
-  description = "ARN suffix of the load balancer"
-  type        = string
-}
+# ============================================================================
+# NOTIFICATION CONFIGURATION
+# ============================================================================
 
 variable "notification_emails" {
   description = "List of email addresses to receive monitoring alerts"
@@ -34,10 +10,30 @@ variable "notification_emails" {
   default     = []
 }
 
-variable "log_retention_days" {
-  description = "Number of days to retain CloudWatch logs"
-  type        = number
-  default     = 14
+variable "critical_notification_emails" {
+  description = "Email addresses for critical alerts (service outages, security issues)"
+  type        = list(string)
+  default     = []
+}
+
+variable "warning_notification_emails" {
+  description = "Email addresses for warning alerts (performance degradation)"
+  type        = list(string)
+  default     = []
+}
+
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for notifications (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "pagerduty_integration_key" {
+  description = "PagerDuty integration key for critical alerts (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 # ============================================================================
@@ -113,8 +109,14 @@ variable "warning_threshold" {
 }
 
 # ============================================================================
-# SECURITY AND PERFORMANCE MONITORING
+# LOG RETENTION AND MONITORING FEATURES
 # ============================================================================
+
+variable "log_retention_days" {
+  description = "Number of days to retain CloudWatch logs"
+  type        = number
+  default     = 14
+}
 
 variable "enable_detailed_monitoring" {
   description = "Enable detailed CloudWatch monitoring (1-minute metrics)"
@@ -135,44 +137,8 @@ variable "enable_cost_anomaly_detection" {
 }
 
 # ============================================================================
-# ALERTING CONFIGURATION
+# ENVIRONMENT CONFIGURATION
 # ============================================================================
-
-variable "critical_notification_emails" {
-  description = "Email addresses for critical alerts (service outages, security issues)"
-  type        = list(string)
-  default     = []
-}
-
-variable "warning_notification_emails" {
-  description = "Email addresses for warning alerts (performance degradation)"
-  type        = list(string)
-  default     = []
-}
-
-variable "slack_webhook_url" {
-  description = "Slack webhook URL for notifications (optional)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "pagerduty_integration_key" {
-  description = "PagerDuty integration key for critical alerts (optional)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-# ============================================================================
-# TAGS AND METADATA
-# ============================================================================
-
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-  default     = {}
-}
 
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
@@ -184,4 +150,10 @@ variable "project_name" {
   description = "Project name for resource naming"
   type        = string
   default     = "mtc-app"
+}
+
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "us-east-1"
 }

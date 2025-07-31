@@ -15,7 +15,7 @@ resource "aws_ecr_repository" "this" {
 }
 
 resource "terraform_data" "login" {
-  provisioner "local-exec" {
+  provisioner "local-exec" 
     command = <<EOT
         docker login ${local.ecr_url} \
         --username ${local.ecr_token.user_name} \
@@ -107,10 +107,7 @@ resource "aws_ecs_service" "this" {
   launch_type     = "FARGATE"
   desired_count   = var.desired_count
 
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 50
-  }
+
 
   network_configuration {
     subnets          = var.subnets
