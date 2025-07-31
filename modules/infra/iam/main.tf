@@ -3,7 +3,7 @@
 # ECS Task Execution Role
 resource "aws_iam_role" "ecs_execution_role" {
   name = "${var.cluster_name}-ecsExecutionRole"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -14,7 +14,7 @@ resource "aws_iam_role" "ecs_execution_role" {
       }
     }]
   })
-  
+
   tags = var.tags
 }
 
@@ -22,7 +22,7 @@ resource "aws_iam_role" "ecs_execution_role" {
 resource "aws_iam_policy" "ecs_secrets_policy" {
   name        = "${var.cluster_name}-ecs-secrets-policy"
   description = "Allow ECS tasks to retrieve all secrets from Secrets Manager"
-  
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -33,7 +33,7 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 

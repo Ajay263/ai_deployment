@@ -9,12 +9,12 @@ include "root" {
 inputs = {
   # Environment configuration
   environment = "dev"
-  
+
   # Infrastructure settings
   vpc_cidr    = "10.0.0.0/16"
   num_subnets = 3
   allowed_ips = ["0.0.0.0/0"]
-  
+
   # Application configuration
   applications = {
     ui = {
@@ -42,7 +42,7 @@ inputs = {
       port                = 5000
       cpu                 = 512
       memory              = 1024
-      desired_count       = 1  # Lower for dev
+      desired_count       = 1 # Lower for dev
       is_public           = true
       path_pattern        = "/api/*"
       lb_priority         = 10
@@ -57,16 +57,16 @@ inputs = {
       envars = []
     }
   }
-  
+
   # Monitoring configuration (more sensitive for dev)
   notification_emails = ["junioralexio607@gmail.com"]
-  cpu_threshold       = 70  # Lower threshold for early detection
+  cpu_threshold       = 70 # Lower threshold for early detection
   memory_threshold    = 75
   alb_5xx_threshold   = 2
-  log_retention_days  = 7   # Shorter retention for cost
-  
+  log_retention_days  = 7 # Shorter retention for cost
+
   # Enable features
-  enable_detailed_monitoring  = true
-  enable_container_insights   = true
-  enable_cost_anomaly_detection = false  # Disabled for dev
+  enable_detailed_monitoring    = true
+  enable_container_insights     = true
+  enable_cost_anomaly_detection = false # Disabled for dev
 }

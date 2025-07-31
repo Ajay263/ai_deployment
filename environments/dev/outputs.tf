@@ -22,9 +22,9 @@ output "application_services" {
   description = "Information about deployed application services"
   value = {
     for app_name, app_config in var.applications : app_name => {
-      service_name = module.ecs.service_names[app_name]
-      service_arn  = module.ecs.service_arns[app_name]
-      ecr_url      = module.ecr.repository_urls[app_name]
+      service_name     = module.ecs.service_names[app_name]
+      service_arn      = module.ecs.service_arns[app_name]
+      ecr_url          = module.ecr.repository_urls[app_name]
       target_group_arn = module.ecs.target_group_arns[app_name]
     }
   }
@@ -81,10 +81,10 @@ output "alarm_names" {
 output "development_info" {
   description = "Development environment specific information"
   value = {
-    environment         = var.environment
-    log_retention_days  = var.log_retention_days
-    cpu_threshold       = var.cpu_threshold
-    memory_threshold    = var.memory_threshold
-    alb_5xx_threshold   = var.alb_5xx_threshold
+    environment        = var.environment
+    log_retention_days = var.log_retention_days
+    cpu_threshold      = var.cpu_threshold
+    memory_threshold   = var.memory_threshold
+    alb_5xx_threshold  = var.alb_5xx_threshold
   }
 }

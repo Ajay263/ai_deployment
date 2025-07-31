@@ -16,11 +16,11 @@ locals {
 
 # Budget for ECS Services (Fixed configuration)
 resource "aws_budgets_budget" "ecs_monthly_budget" {
-  name         = "${var.cluster_name}-monthly-budget"
-  budget_type  = "COST"
-  limit_amount = "100"
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
+  name              = "${var.cluster_name}-monthly-budget"
+  budget_type       = "COST"
+  limit_amount      = "100"
+  limit_unit        = "USD"
+  time_unit         = "MONTHLY"
   time_period_start = formatdate("YYYY-MM-01_00:00", timestamp())
 
   cost_filter {
@@ -34,16 +34,16 @@ resource "aws_budgets_budget" "ecs_monthly_budget" {
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 80
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = var.notification_emails
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 100
-    threshold_type            = "PERCENTAGE"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
     subscriber_email_addresses = var.notification_emails
   }
@@ -97,7 +97,7 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
 
 # S3 bucket policy for CloudTrail
 resource "aws_s3_bucket_policy" "cloudtrail_logs" {
-  bucket = aws_s3_bucket.cloudtrail_logs.id
+  bucket     = aws_s3_bucket.cloudtrail_logs.id
   depends_on = [aws_s3_bucket_public_access_block.cloudtrail_logs]
 
   policy = jsonencode({
@@ -127,7 +127,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
         Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl" = "bucket-owner-full-control"
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
             "AWS:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_name}-security-trail"
           }
         }

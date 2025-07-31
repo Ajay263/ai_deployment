@@ -12,7 +12,7 @@ variable "cluster_arn" {
 
 variable "applications" {
   description = "Map of applications to monitor"
-  type        = map(object({
+  type = map(object({
     name = string
   }))
 }

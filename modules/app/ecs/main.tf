@@ -36,7 +36,7 @@ resource "aws_ecs_task_definition" "this" {
       essential   = true
       environment = each.value.envars
       secrets     = each.value.secrets
-      
+
       portMappings = [
         {
           containerPort = each.value.port

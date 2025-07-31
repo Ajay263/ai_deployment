@@ -33,7 +33,7 @@ resource "aws_ecr_repository_policy" "this" {
 # Docker operations - Login
 resource "terraform_data" "login" {
   for_each = var.applications
-  
+
   provisioner "local-exec" {
     command = <<EOT
         docker login ${aws_ecr_repository.this[each.key].repository_url} \
@@ -46,12 +46,12 @@ resource "terraform_data" "login" {
 # Docker operations - Build (FIXED PATHS)
 resource "terraform_data" "build" {
   for_each = var.applications
-  
+
   triggers_replace = [
     each.value.image_version
   ]
   depends_on = [terraform_data.login]
-  
+
   provisioner "local-exec" {
     command = <<EOT
         docker build -t ${aws_ecr_repository.this[each.key].repository_url} ${var.docker_build_path}/modules/app/apps/${each.value.app_path}
@@ -62,12 +62,12 @@ resource "terraform_data" "build" {
 # Docker operations - Push
 resource "terraform_data" "push" {
   for_each = var.applications
-  
+
   triggers_replace = [
     each.value.image_version
   ]
   depends_on = [terraform_data.login, terraform_data.build]
-  
+
   provisioner "local-exec" {
     command = <<EOT
         docker image tag ${aws_ecr_repository.this[each.key].repository_url} ${aws_ecr_repository.this[each.key].repository_url}:${each.value.image_version}

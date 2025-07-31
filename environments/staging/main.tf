@@ -11,7 +11,7 @@ data "aws_region" "current" {}
 # Local values
 locals {
   cluster_name = "${var.project_name}-${var.environment}"
-  
+
   common_tags = merge(var.common_tags, {
     Environment = var.environment
   })
@@ -20,13 +20,13 @@ locals {
 # Cost and Security Module
 module "cost_security" {
   source = "../../modules/monitoring/cost-security"
-  
+
   cluster_name              = local.cluster_name
   notification_emails       = var.notification_emails
-  sns_topic_arn            = module.sns.sns_topic_arn
-  log_retention_days       = var.log_retention_days
+  sns_topic_arn             = module.sns.sns_topic_arn
+  log_retention_days        = var.log_retention_days
   enable_container_insights = var.enable_container_insights
-  tags                     = local.common_tags
+  tags                      = local.common_tags
 }
 
 # ============================================================================
@@ -36,7 +36,7 @@ module "cost_security" {
 # VPC Module
 module "vpc" {
   source = "../../modules/infra/vpc"
-  
+
   vpc_cidr     = var.vpc_cidr
   num_subnets  = var.num_subnets
   cluster_name = local.cluster_name
@@ -46,7 +46,7 @@ module "vpc" {
 # Security Groups Module
 module "security_groups" {
   source = "../../modules/infra/security-groups"
-  
+
   vpc_id       = module.vpc.vpc_id
   cluster_name = local.cluster_name
   allowed_ips  = var.allowed_ips
@@ -56,7 +56,7 @@ module "security_groups" {
 # IAM Module
 module "iam" {
   source = "../../modules/infra/iam"
-  
+
   cluster_name = local.cluster_name
   tags         = local.common_tags
 }
@@ -68,18 +68,18 @@ module "iam" {
 # ALB Module
 module "alb" {
   source = "../../modules/app/alb"
-  
-  cluster_name            = local.cluster_name
-  alb_security_group_id   = module.security_groups.alb_security_group_id
-  subnet_ids              = module.vpc.public_subnet_ids
-  enable_deletion_protection = false  # Enable in production
-  tags                    = local.common_tags
+
+  cluster_name               = local.cluster_name
+  alb_security_group_id      = module.security_groups.alb_security_group_id
+  subnet_ids                 = module.vpc.public_subnet_ids
+  enable_deletion_protection = false # Enable in production
+  tags                       = local.common_tags
 }
 
 # ECR Module
 module "ecr" {
   source = "../../modules/app/ecr"
-  
+
   applications      = var.applications
   docker_build_path = "../.."
   tags              = local.common_tags
@@ -98,9 +98,9 @@ resource "local_file" "dockerfile" {
 # ECS Module
 module "ecs" {
   source = "../../modules/app/ecs"
-  
+
   depends_on = [local_file.dockerfile]
-  
+
   cluster_name              = local.cluster_name
   applications              = var.applications
   ecr_repositories          = module.ecr.repositories
@@ -121,9 +121,9 @@ module "ecs" {
 # CloudWatch Module
 module "cloudwatch" {
   source = "../../modules/monitoring/cloudwatch"
-  
-  cluster_name             = local.cluster_name
-  cluster_arn              = module.ecs.cluster_arn
+
+  cluster_name = local.cluster_name
+  cluster_arn  = module.ecs.cluster_arn
   applications = {
     for app_name, app_config in var.applications : app_name => {
       name = app_config.app_name
@@ -137,7 +137,7 @@ module "cloudwatch" {
 # SNS Module
 module "sns" {
   source = "../../modules/monitoring/sns"
-  
+
   cluster_name        = local.cluster_name
   notification_emails = var.notification_emails
   slack_webhook_url   = var.slack_webhook_url

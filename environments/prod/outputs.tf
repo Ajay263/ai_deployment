@@ -24,14 +24,14 @@ output "application_services" {
   description = "Information about deployed application services"
   value = {
     for app_name, app_config in var.applications : app_name => {
-      service_name     = module.ecs.service_names[app_name]
-      service_arn      = module.ecs.service_arns[app_name]
-      ecr_url          = module.ecr.repository_urls[app_name]
-      target_group_arn = module.ecs.target_group_arns[app_name]
-      desired_count    = app_config.desired_count
-      cpu              = app_config.cpu
-      memory           = app_config.memory
-      environment      = "production"
+      service_name      = module.ecs.service_names[app_name]
+      service_arn       = module.ecs.service_arns[app_name]
+      ecr_url           = module.ecr.repository_urls[app_name]
+      target_group_arn  = module.ecs.target_group_arns[app_name]
+      desired_count     = app_config.desired_count
+      cpu               = app_config.cpu
+      memory            = app_config.memory
+      environment       = "production"
       high_availability = app_config.desired_count >= 2
     }
   }
@@ -44,20 +44,20 @@ output "application_services" {
 output "vpc_info" {
   description = "VPC information"
   value = {
-    vpc_id     = module.vpc.vpc_id
-    vpc_cidr   = module.vpc.vpc_cidr_block
-    subnet_ids = module.vpc.public_subnet_ids
+    vpc_id      = module.vpc.vpc_id
+    vpc_cidr    = module.vpc.vpc_cidr_block
+    subnet_ids  = module.vpc.public_subnet_ids
     environment = "production"
-    multi_az   = length(module.vpc.public_subnet_ids) > 1
+    multi_az    = length(module.vpc.public_subnet_ids) > 1
   }
 }
 
 output "cluster_info" {
   description = "ECS cluster information"
   value = {
-    cluster_name = module.ecs.cluster_name
-    cluster_arn  = module.ecs.cluster_arn
-    environment  = "production"
+    cluster_name     = module.ecs.cluster_name
+    cluster_arn      = module.ecs.cluster_arn
+    environment      = "production"
     insights_enabled = var.enable_container_insights
   }
 }
@@ -99,13 +99,13 @@ output "alarm_names" {
 output "security_info" {
   description = "Security and compliance information"
   value = {
-    cloudtrail_enabled    = true
-    encryption_enabled    = true
-    deletion_protection   = true
-    backup_enabled        = var.enable_backup
-    multi_az_deployment   = var.enable_multi_az
-    cost_monitoring       = var.enable_cost_anomaly_detection
-    detailed_monitoring   = var.enable_detailed_monitoring
+    cloudtrail_enabled  = true
+    encryption_enabled  = true
+    deletion_protection = true
+    backup_enabled      = var.enable_backup
+    multi_az_deployment = var.enable_multi_az
+    cost_monitoring     = var.enable_cost_anomaly_detection
+    detailed_monitoring = var.enable_detailed_monitoring
   }
 }
 
@@ -116,16 +116,16 @@ output "security_info" {
 output "production_info" {
   description = "Production environment specific information"
   value = {
-    environment           = var.environment
-    log_retention_days    = var.log_retention_days
-    cpu_threshold         = var.cpu_threshold
-    memory_threshold      = var.memory_threshold
-    alb_5xx_threshold     = var.alb_5xx_threshold
+    environment             = var.environment
+    log_retention_days      = var.log_retention_days
+    cpu_threshold           = var.cpu_threshold
+    memory_threshold        = var.memory_threshold
+    alb_5xx_threshold       = var.alb_5xx_threshold
     response_time_threshold = var.alb_response_time_threshold
-    minimum_task_count    = var.task_count_threshold
-    high_availability     = true
-    disaster_recovery     = "enabled"
-    compliance_ready      = true
+    minimum_task_count      = var.task_count_threshold
+    high_availability       = true
+    disaster_recovery       = "enabled"
+    compliance_ready        = true
   }
 }
 
@@ -136,10 +136,10 @@ output "production_info" {
 output "cost_tracking" {
   description = "Cost tracking and budgeting information"
   value = {
-    cost_center          = "production"
-    billing_alerts       = "enabled"
-    budget_monitoring    = var.enable_cost_anomaly_detection
-    resource_tagging     = "enforced"
+    cost_center            = "production"
+    billing_alerts         = "enabled"
+    budget_monitoring      = var.enable_cost_anomaly_detection
+    resource_tagging       = "enforced"
     estimated_monthly_cost = "Contact FinOps team for details"
   }
 }
