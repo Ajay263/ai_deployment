@@ -1,4 +1,3 @@
-
 name: 'Terraform Plan'
 
 on:
@@ -8,6 +7,8 @@ on:
   workflow_call:
     secrets:
       ROLE_TO_ASSUME:
+        required: true
+      GROQ_API_KEY:
         required: true
 
 permissions:
@@ -39,6 +40,24 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    # Create or update the secret in AWS Secrets Manager
+    - name: Create/Update AWS Secret
+      run: |
+        if aws secretsmanager describe-secret --secret-id "groqkey" --region us-east-1 2>/dev/null; then
+          echo "Secret exists, updating..."
+          aws secretsmanager update-secret \
+            --secret-id "groqkey" \
+            --secret-string "${{ secrets.GROQ_API_KEY }}" \
+            --region us-east-1
+        else
+          echo "Secret doesn't exist, creating..."
+          aws secretsmanager create-secret \
+            --name "groqkey" \
+            --description "Groq API Key for Terraform Quiz App" \
+            --secret-string "${{ secrets.GROQ_API_KEY }}" \
+            --region us-east-1
+        fi
+
     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -51,7 +70,7 @@ jobs:
     - name: Terraform Format
       run: terraform fmt -check
 
-      # Terraform Plan
+    # Terraform Plan
     - name: Terraform Plan
       id: plan
       run: |
