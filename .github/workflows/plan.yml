@@ -23,7 +23,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ./terraform
+        working-directory: .
     env:
       GH_TOKEN: ${{ github.token }}
       TF_VAR_public_key: ${{ secrets.EC2_SSH_PUBLIC_KEY }}
