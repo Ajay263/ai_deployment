@@ -85,12 +85,12 @@ output "alarm_names" {
 output "staging_info" {
   description = "Staging environment specific information"
   value = {
-    environment         = var.environment
-    log_retention_days  = var.log_retention_days
-    cpu_threshold       = var.cpu_threshold
-    memory_threshold    = var.memory_threshold
-    alb_5xx_threshold   = var.alb_5xx_threshold
-    cost_monitoring     = "enabled"
-    backup_retention    = "moderate"
+    environment        = var.environment
+    log_retention_days = var.log_retention_days
+    cpu_threshold      = var.cpu_threshold
+    memory_threshold   = var.memory_threshold
+    alb_5xx_threshold  = var.alb_5xx_threshold
+    cost_monitoring    = "enabled"
+    backup_retention   = "moderate"
   }
 }

@@ -110,7 +110,7 @@ jobs:
       environment: prod
       skip_confirmation: true
     secrets:
-      ROLE_TO_ASSUME: ${{ secrets.PROD_ROLE_TO_ASSUME }}
+      ROLE_TO_ASSUME: ${{ secrets.ROLE_TO_ASSUME }}
 
   # Smoke tests after deployment
   smoke-tests:

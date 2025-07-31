@@ -30,6 +30,6 @@ resource "aws_lb_listener" "this" {
       status_code  = "503"
     }
   }
-  
+
   tags = var.tags
 }
