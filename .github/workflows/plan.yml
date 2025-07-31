@@ -148,7 +148,7 @@ jobs:
           fi
 
       - name: Upload Plan Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-${{ matrix.environment }}
           path: |
