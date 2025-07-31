@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 CORS(app, resources={"/api/*": {"origins": "*"}})
 
-# Retrieve the API key from the environment
+# Retrieve the API key from the environment - UPDATED TO USE GROQ_API_KEY
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if GROQ_API_KEY:
     client = Groq(api_key=GROQ_API_KEY)

@@ -5,6 +5,27 @@ data "aws_secretsmanager_secret" "groq_api_key" {
   name = "groqkey"
 }
 
+
+# Create the secret
+resource "aws_secretsmanager_secret" "groq_api_key" {
+  name        = "groqkey"
+  description = "Groq API Key for Terraform Quiz App"
+  
+  tags = local.common_tags
+}
+
+# Store the secret value
+resource "aws_secretsmanager_secret_version" "groq_api_key" {
+  secret_id     = aws_secretsmanager_secret.groq_api_key.id
+  secret_string = var.groq_api_key
+}
+
+# Update the data source to reference the created secret
+data "aws_secretsmanager_secret" "groq_api_key" {
+  depends_on = [aws_secretsmanager_secret.groq_api_key]
+  name       = aws_secretsmanager_secret.groq_api_key.name
+}
+
 data "aws_region" "current" {}
 
 # Local values
@@ -27,7 +48,7 @@ locals {
       secrets             = []
       envars              = []
     }
-    api = {
+ api = {
       ecr_repository_name = "api"
       app_path            = "api"
       image_version       = "1.0.4"
@@ -41,7 +62,7 @@ locals {
       lb_priority         = 10
       healthcheck_path    = "/api/healthcheck"
       healthcheck_command = ["CMD-SHELL", "curl -f http://localhost:5000/api/healthcheck || exit 1"]
-      secrets = [
+      secrets             = [
         {
           name      = "GROQ_API_KEY"
           valueFrom = data.aws_secretsmanager_secret.groq_api_key.arn

@@ -1,4 +1,3 @@
-
 name: 'Terraform Plan'
 
 on:
@@ -8,6 +7,8 @@ on:
   workflow_call:
     secrets:
       ROLE_TO_ASSUME:
+        required: true
+      GROQ_API_KEY:
         required: true
 
 permissions:
@@ -19,7 +20,7 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: prod
+    environment: production
     defaults:
       run:
         shell: bash
@@ -27,6 +28,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TF_VAR_public_key: ${{ secrets.EC2_SSH_PUBLIC_KEY }}
+      TF_VAR_groq_api_key: ${{ secrets.GROQ_API_KEY }}
 
     steps:
     # Checkout the repository to the GitHub Actions runner
