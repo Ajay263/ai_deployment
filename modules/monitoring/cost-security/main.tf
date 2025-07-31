@@ -318,7 +318,7 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
 # CONTAINER INSIGHTS CONFIGURATION
 # ============================================================================
 
-# CloudWatch log group for Container Insights
+# CloudWatch log group for Container Insights.
 resource "aws_cloudwatch_log_group" "container_insights" {
   count = var.enable_container_insights ? 1 : 0
 

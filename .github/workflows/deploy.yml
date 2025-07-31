@@ -77,7 +77,7 @@ jobs:
       environment: dev
       skip_confirmation: true
     secrets:
-      ROLE_TO_ASSUME: ${{ secrets.DEV_ROLE_TO_ASSUME }}
+      ROLE_TO_ASSUME: ${{ secrets.ROLE_TO_ASSUME }}
 
   # Staging Environment  
   deploy-staging:
@@ -92,7 +92,7 @@ jobs:
       environment: staging
       skip_confirmation: true
     secrets:
-      ROLE_TO_ASSUME: ${{ secrets.STAGING_ROLE_TO_ASSUME }}
+      ROLE_TO_ASSUME: ${{ secrets.ROLE_TO_ASSUME }}
 
   # Production Environment (requires approval)
   deploy-prod:

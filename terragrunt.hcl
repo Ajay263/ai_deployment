@@ -2,7 +2,7 @@
 # This file contains shared configuration for all environments
 
 locals {
-  # Common variables across all environments
+  # Common variables across all environments.
   project_name = "mtc-app"
   aws_region   = "us-east-1"
   
