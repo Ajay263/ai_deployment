@@ -107,10 +107,7 @@ resource "aws_ecs_service" "this" {
   launch_type     = "FARGATE"
   desired_count   = var.desired_count
 
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 50
-  }
+
 
   network_configuration {
     subnets          = var.subnets

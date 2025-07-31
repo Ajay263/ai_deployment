@@ -1,8 +1,8 @@
-# main.tf (Updated with monitoring integration)
+# main.tf (Updated with proper variable passing)
 
 # Data sources
-data "aws_secretsmanager_secret" "openai_api_key" {
-  name = "openaikey"
+data "aws_secretsmanager_secret" "groq_api_key" {
+  name = "groqkey"
 }
 
 data "aws_region" "current" {}
@@ -41,10 +41,10 @@ locals {
       lb_priority         = 10
       healthcheck_path    = "/api/healthcheck"
       healthcheck_command = ["CMD-SHELL", "curl -f http://localhost:5000/api/healthcheck || exit 1"]
-      secrets             = [
+      secrets = [
         {
-          name      = "OPENAI_API_KEY"
-          valueFrom = data.aws_secretsmanager_secret.openai_api_key.arn
+          name      = "GROQ_API_KEY"
+          valueFrom = data.aws_secretsmanager_secret.groq_api_key.arn
         }
       ]
       envars = []
@@ -53,13 +53,10 @@ locals {
 
   # Environment-specific configuration
   environment = terraform.workspace == "default" ? "dev" : terraform.workspace
-  
-  # Monitoring configuration
-  notification_emails = ["your-email@example.com"] # Replace with your email
-  
+
   common_tags = {
     Environment = local.environment
-    Project     = "mtc-app"
+    Project     = var.project_name
     ManagedBy   = "terraform"
   }
 }
@@ -85,11 +82,11 @@ resource "local_file" "dockerfile" {
 # Application modules
 module "app" {
   source = "./modules/app"
-  
+
   for_each = local.apps
-  
+
   depends_on = [local_file.dockerfile]
-  
+
   # Application configuration
   ecr_repository_name = each.value.ecr_repository_name
   app_path            = each.value.app_path
@@ -106,7 +103,7 @@ module "app" {
   healthcheck_path    = each.value.healthcheck_path
   healthcheck_command = each.value.healthcheck_command
   lb_priority         = each.value.lb_priority
-  
+
   # Infrastructure references
   execution_role_arn    = module.infra.execution_role_arn
   app_security_group_id = module.infra.app_security_group_id
@@ -114,48 +111,66 @@ module "app" {
   cluster_arn           = module.infra.cluster_arn
   vpc_id                = module.infra.vpc_id
   alb_listener_arn      = module.infra.alb_listener_arn
-  
-  # Monitoring configuration
-  log_group_name = module.monitoring.cloudwatch_log_groups.app_logs[each.key]
+
+  # Monitoring configuration - will be set after monitoring module is created
+  log_group_name = "/ecs/${module.infra.cluster_name}/${each.key}"
   aws_region     = data.aws_region.current.name
-  
+
   tags = local.common_tags
 }
 
 # Monitoring module
 module "monitoring" {
   source = "./modules/monitoring"
-  
+
   depends_on = [module.infra]
-  
+
   # Cluster configuration
   cluster_name = module.infra.cluster_name
   cluster_arn  = module.infra.cluster_arn
-  
+
   # Applications to monitor
   applications = {
     for app_name, app_config in local.apps : app_name => {
       name = app_config.app_name
     }
   }
-  
+
   # Target groups for ALB monitoring
   target_groups = {
     for app_name, app in module.app : app_name => app.target_group_arn_suffix
   }
-  
+
   # Load balancer configuration
   load_balancer_arn_suffix = module.infra.alb_arn_suffix
-  
-  # Notification configuration
-  notification_emails = local.notification_emails
+
+  # Pass all variables from root module to monitoring module
+  notification_emails                = var.notification_emails
+  critical_notification_emails       = var.critical_notification_emails
+  warning_notification_emails        = var.warning_notification_emails
+  slack_webhook_url                  = var.slack_webhook_url
+  pagerduty_integration_key          = var.pagerduty_integration_key
   
   # Monitoring thresholds
-  cpu_threshold    = 80
-  memory_threshold = 80
-  error_threshold  = 5
-  log_retention_days = 14
+  cpu_threshold                      = var.cpu_threshold
+  memory_threshold                   = var.memory_threshold
+  task_count_threshold               = var.task_count_threshold
+  alb_response_time_threshold        = var.alb_response_time_threshold
+  alb_5xx_threshold                  = var.alb_5xx_threshold
+  alb_4xx_threshold                  = var.alb_4xx_threshold
+  alb_low_traffic_threshold          = var.alb_low_traffic_threshold
+  error_threshold                    = var.error_threshold
+  flask_5xx_threshold                = var.flask_5xx_threshold
+  warning_threshold                  = var.warning_threshold
   
+  # Configuration options
+  log_retention_days                 = var.log_retention_days
+  enable_detailed_monitoring         = var.enable_detailed_monitoring
+  enable_container_insights          = var.enable_container_insights
+  enable_cost_anomaly_detection      = var.enable_cost_anomaly_detection
+  environment                        = var.environment
+  project_name                       = var.project_name
+
   tags = local.common_tags
 }
 
@@ -177,7 +192,7 @@ EOF
 
 resource "aws_cloudwatch_query_definition" "app_errors" {
   for_each = local.apps
-  
+
   name = "${module.infra.cluster_name}-${each.key}-errors"
 
   log_group_names = [
@@ -222,4 +237,18 @@ output "application_services" {
 output "alarm_names" {
   description = "List of all CloudWatch alarm names"
   value       = module.monitoring.alarm_names
+}
+
+output "monitoring_summary" {
+  description = "Comprehensive monitoring setup summary"
+  value       = module.monitoring.monitoring_summary
+}
+
+output "security_monitoring" {
+  description = "Security monitoring resources"
+  value = {
+    cloudtrail_enabled = true
+    vpc_flow_logs_enabled = true
+    security_alarms_count = 3
+  }
 }
