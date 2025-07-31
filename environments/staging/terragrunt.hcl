@@ -10,12 +10,12 @@ include "root" {
 inputs = {
   # Environment configuration
   environment = "staging"
-  
+
   # Infrastructure settings (slightly larger than dev)
   vpc_cidr    = "10.1.0.0/16"
   num_subnets = 3
-  allowed_ips = ["0.0.0.0/0"]  # In production, restrict this to office IPs
-  
+  allowed_ips = ["0.0.0.0/0"] # In production, restrict this to office IPs
+
   # Application configuration
   applications = {
     ui = {
@@ -24,9 +24,9 @@ inputs = {
       image_version       = "1.0.1"
       app_name            = "ui"
       port                = 80
-      cpu                 = 512    # Higher than dev
-      memory              = 1024   # Higher than dev
-      desired_count       = 2      # More instances for staging
+      cpu                 = 512  # Higher than dev
+      memory              = 1024 # Higher than dev
+      desired_count       = 2    # More instances for staging
       is_public           = true
       path_pattern        = "/*"
       lb_priority         = 20
@@ -41,9 +41,9 @@ inputs = {
       image_version       = "1.0.4"
       app_name            = "api"
       port                = 5000
-      cpu                 = 1024   # Higher than dev
-      memory              = 2048   # Higher than dev
-      desired_count       = 2      # More instances for staging
+      cpu                 = 1024 # Higher than dev
+      memory              = 2048 # Higher than dev
+      desired_count       = 2    # More instances for staging
       is_public           = true
       path_pattern        = "/api/*"
       lb_priority         = 10
@@ -58,16 +58,16 @@ inputs = {
       envars = []
     }
   }
-  
+
   # Monitoring configuration (production-like but less sensitive)
   notification_emails = ["junioralexio607@gmail.com"]
-  cpu_threshold       = 75  # Moderate threshold
+  cpu_threshold       = 75 # Moderate threshold
   memory_threshold    = 80
   alb_5xx_threshold   = 5
-  log_retention_days  = 14  # Moderate retention
-  
+  log_retention_days  = 14 # Moderate retention
+
   # Enable features
-  enable_detailed_monitoring     = true
-  enable_container_insights      = true
-  enable_cost_anomaly_detection  = true  # Enabled for staging
+  enable_detailed_monitoring    = true
+  enable_container_insights     = true
+  enable_cost_anomaly_detection = true # Enabled for staging
 }
