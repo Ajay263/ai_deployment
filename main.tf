@@ -1,10 +1,4 @@
-# main.tf (Updated with proper variable passing)
-
-# Data sources
-data "aws_secretsmanager_secret" "groq_api_key" {
-  name = "groqkey"
-}
-
+# main.tf (Fixed - removed duplicate data source)
 
 # Create the secret
 resource "aws_secretsmanager_secret" "groq_api_key" {
@@ -18,12 +12,6 @@ resource "aws_secretsmanager_secret" "groq_api_key" {
 resource "aws_secretsmanager_secret_version" "groq_api_key" {
   secret_id     = aws_secretsmanager_secret.groq_api_key.id
   secret_string = var.groq_api_key
-}
-
-# Update the data source to reference the created secret
-data "aws_secretsmanager_secret" "groq_api_key" {
-  depends_on = [aws_secretsmanager_secret.groq_api_key]
-  name       = aws_secretsmanager_secret.groq_api_key.name
 }
 
 data "aws_region" "current" {}
@@ -48,7 +36,7 @@ locals {
       secrets             = []
       envars              = []
     }
- api = {
+    api = {
       ecr_repository_name = "api"
       app_path            = "api"
       image_version       = "1.0.4"
@@ -65,7 +53,7 @@ locals {
       secrets             = [
         {
           name      = "GROQ_API_KEY"
-          valueFrom = data.aws_secretsmanager_secret.groq_api_key.arn
+          valueFrom = aws_secretsmanager_secret.groq_api_key.arn
         }
       ]
       envars = []
