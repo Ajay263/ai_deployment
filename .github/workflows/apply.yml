@@ -7,11 +7,11 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: production
+    environment: prod
     defaults:
       run:
         shell: bash
-        working-directory: ./terraform
+        working-directory: .
     env:
       TF_VAR_public_key: ${{ secrets.EC2_SSH_PUBLIC_KEY }}
     steps:
