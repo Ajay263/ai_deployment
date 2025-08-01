@@ -1,4 +1,4 @@
-# modules/app/main.tf (Updated with logging configuration)
+# modules/app/main.tf (Fixed)
 
 locals {
   ecr_url   = aws_ecr_repository.this.repository_url
@@ -106,11 +106,6 @@ resource "aws_ecs_service" "this" {
   task_definition = aws_ecs_task_definition.this.arn
   launch_type     = "FARGATE"
   desired_count   = var.desired_count
-
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 50
-  }
 
   network_configuration {
     subnets          = var.subnets
