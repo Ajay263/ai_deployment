@@ -21,6 +21,7 @@ jobs:
   # Code Quality and Security Checks
   Code-Quality-checks:
     runs-on: ubuntu-latest
+    environment: prod
     outputs:
       should-deploy: ${{ steps.check-deploy.outputs.should-deploy }}
     steps:
