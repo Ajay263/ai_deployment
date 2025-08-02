@@ -49,21 +49,19 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: SonarQube Scan
+      - name: Setup SonarQube
         uses: SonarSource/sonarqube-scan-action@v5.2.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
-        with:
-          projectKey: ${{ secrets.SONAR_PROJECT_KEY }}
-          organization: ${{ secrets.SONAR_ORGANIZATION }}
-          args: >
-            -Dsonar.projectName="AI Deployment Pipeline"
-            -Dsonar.projectVersion="1.0.$(echo $GITHUB_SHA | cut -c1-7)"
-            -Dsonar.sources=modules/app/apps/
-            -Dsonar.exclusions=**/node_modules/**,**/*.pyc,**/__pycache__/**,**/Dockerfile,**/*.zip
+
+      - name: SonarQube Scan
+        run: |
+          sonar-scanner \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.sources=modules/app/apps/ \
+            -Dsonar.exclusions=**/node_modules/**,**/*.pyc,**/__pycache__/** \
             -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.scm.provider=git
 
       - name: Install Python Dependencies for API
         working-directory: modules/app/apps/api
