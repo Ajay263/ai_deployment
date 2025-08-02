@@ -27,6 +27,9 @@ jobs:
     steps:
       - name: Code checkout
         uses: actions/checkout@v4
+        with:
+          # Disabling shallow clones is recommended for improving the relevancy of reporting
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -46,19 +49,11 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Setup SonarQube
-        uses: warchant/setup-sonar-scanner@v7
-
       - name: SonarQube Scan
-        run: |
-          sonar-scanner \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-            -Dsonar.sources=modules/app/apps/ \
-            -Dsonar.exclusions=**/node_modules/**,**/*.pyc,**/__pycache__/** \
-            -Dsonar.python.coverage.reportPaths=coverage.xml
+        uses: SonarSource/sonarqube-scan-action@v5.2.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # generated at https://sonarcloud.io/account/security
+          SONAR_HOST_URL: https://sonarcloud.io      # or define via ${{ vars.SONAR_HOST_URL }} 
 
       - name: Install Python Dependencies for API
         working-directory: modules/app/apps/api
