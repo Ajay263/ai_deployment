@@ -145,31 +145,31 @@ module "monitoring" {
   load_balancer_arn_suffix = module.infra.alb_arn_suffix
 
   # Pass all variables from root module to monitoring module
-  notification_emails                = var.notification_emails
-  critical_notification_emails       = var.critical_notification_emails
-  warning_notification_emails        = var.warning_notification_emails
-  slack_webhook_url                  = var.slack_webhook_url
-  pagerduty_integration_key          = var.pagerduty_integration_key
-  
+  notification_emails          = var.notification_emails
+  critical_notification_emails = var.critical_notification_emails
+  warning_notification_emails  = var.warning_notification_emails
+  slack_webhook_url            = var.slack_webhook_url
+  pagerduty_integration_key    = var.pagerduty_integration_key
+
   # Monitoring thresholds
-  cpu_threshold                      = var.cpu_threshold
-  memory_threshold                   = var.memory_threshold
-  task_count_threshold               = var.task_count_threshold
-  alb_response_time_threshold        = var.alb_response_time_threshold
-  alb_5xx_threshold                  = var.alb_5xx_threshold
-  alb_4xx_threshold                  = var.alb_4xx_threshold
-  alb_low_traffic_threshold          = var.alb_low_traffic_threshold
-  error_threshold                    = var.error_threshold
-  flask_5xx_threshold                = var.flask_5xx_threshold
-  warning_threshold                  = var.warning_threshold
-  
+  cpu_threshold               = var.cpu_threshold
+  memory_threshold            = var.memory_threshold
+  task_count_threshold        = var.task_count_threshold
+  alb_response_time_threshold = var.alb_response_time_threshold
+  alb_5xx_threshold           = var.alb_5xx_threshold
+  alb_4xx_threshold           = var.alb_4xx_threshold
+  alb_low_traffic_threshold   = var.alb_low_traffic_threshold
+  error_threshold             = var.error_threshold
+  flask_5xx_threshold         = var.flask_5xx_threshold
+  warning_threshold           = var.warning_threshold
+
   # Configuration options
-  log_retention_days                 = var.log_retention_days
-  enable_detailed_monitoring         = var.enable_detailed_monitoring
-  enable_container_insights          = var.enable_container_insights
-  enable_cost_anomaly_detection      = var.enable_cost_anomaly_detection
-  environment                        = var.environment
-  project_name                       = var.project_name
+  log_retention_days            = var.log_retention_days
+  enable_detailed_monitoring    = var.enable_detailed_monitoring
+  enable_container_insights     = var.enable_container_insights
+  enable_cost_anomaly_detection = var.enable_cost_anomaly_detection
+  environment                   = var.environment
+  project_name                  = var.project_name
 
   tags = local.common_tags
 }
@@ -247,7 +247,7 @@ output "monitoring_summary" {
 output "security_monitoring" {
   description = "Security monitoring resources"
   value = {
-    cloudtrail_enabled = true
+    cloudtrail_enabled    = true
     vpc_flow_logs_enabled = true
     security_alarms_count = 3
   }
