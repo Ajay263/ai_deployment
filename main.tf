@@ -1,9 +1,11 @@
-# main.tf (Fixed - removed duplicate data source)
+# main.tf (Fixed - handles secret deletion/recovery)
 
-# Create the secret
+# Create the secret with force delete and recovery handling
 resource "aws_secretsmanager_secret" "groq_api_key" {
-  name        = "groqkey"
-  description = "Groq API Key for Terraform Quiz App"
+  name                    = "groqkey"
+  description             = "Groq API Key for Terraform Quiz App"
+  force_overwrite_replica_secret = true
+  recovery_window_in_days = 0  # Immediate deletion, no recovery window
 
   tags = local.common_tags
 }
